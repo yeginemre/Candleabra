@@ -5,7 +5,7 @@ public class LevelManager : MonoBehaviour
     [Header("Level Management")]
     [SerializeField] private Level[] levels;
     [SerializeField] private CandleCharacter player;
-    [SerializeField] private float levelXOffset = 19.2f; // Add this line - 19.2 units = 1920 pixels at 100 PPU
+    [SerializeField] private float levelXOffset; // Add this line - 19.2 units = 1920 pixels at 100 PPU
     
     [Header("Camera Bounds")]
     [SerializeField] private Camera mainCamera;
@@ -64,7 +64,7 @@ public class LevelManager : MonoBehaviour
             if (playerPos.y < respawnYThreshold)
             {
                 Debug.Log("Player fell below threshold - respawning");
-                RespawnPlayerAndCollectables();
+                player.Die();
                 return;
             }
 
@@ -95,6 +95,8 @@ public class LevelManager : MonoBehaviour
                     
                     // Set camera target to next level position
                     targetCameraPosition = new Vector3((currentLevelIndex + 1) * levelXOffset, mainCamera.transform.position.y, mainCamera.transform.position.z);
+
+                    
                     LoadNextLevel();
                 }
             }
@@ -137,7 +139,6 @@ public class LevelManager : MonoBehaviour
             return;
         }
 
-        // Keep previous level active during transition
         if (!isTransitioning && currentLevel != null)
         {
             currentLevel.gameObject.SetActive(false);
@@ -146,17 +147,16 @@ public class LevelManager : MonoBehaviour
         // Enable new level
         currentLevel = levels[levelIndex];
         currentLevel.gameObject.SetActive(true);
+        
+        // Activate all children
+        foreach (Transform child in currentLevel.transform)
+        {
+            child.gameObject.SetActive(true);
+        }
+        
         currentLevelIndex = levelIndex;
 
         Debug.Log($"New level position: {currentLevel.transform.position}");
-
-        // Spawn player at the correct position
-        if (player != null && currentLevel.playerSpawnPoint != null)
-        {
-            player.transform.position = currentLevel.playerSpawnPoint.position;
-            player.GetComponent<Rigidbody2D>().linearVelocity = Vector2.zero; // Reset velocity
-            Debug.Log($"Player spawned at: {player.transform.position}");
-        }
 
         // Update boundaries for new level
         UpdateCameraBoundaries();
@@ -197,7 +197,7 @@ public class LevelManager : MonoBehaviour
         }
     }
 
-    private void RespawnPlayerAndCollectables()
+    public void RespawnPlayerAndCollectables()
     {
         // Respawn player
         if (player != null && currentLevel.playerSpawnPoint != null)
@@ -249,5 +249,35 @@ public class LevelManager : MonoBehaviour
                 new Vector3(triggerX, 10, 0)
             );
         }
+    }
+
+    public void RestartGame()
+    {
+        Debug.Log("Restarting game...");
+
+        // Reset level index to 0
+        currentLevelIndex = 0;
+        
+        // Reset transition state
+        isTransitioning = false;
+        previousLevel = null;
+        
+        // Reset level completion
+        isLevelComplete = false;
+        
+        // Deactivate all levels except first one
+        for (int i = 0; i < levels.Length; i++)
+        {
+            levels[i].gameObject.SetActive(i == 0);
+        }
+        
+        // Load first level
+        LoadLevel(0);
+        
+        // Reset camera position
+        targetCameraPosition = new Vector3(0, mainCamera.transform.position.y, mainCamera.transform.position.z);
+        mainCamera.transform.position = targetCameraPosition;
+        player.Die();
+        player.transform.position = currentLevel.playerSpawnPoint.position;
     }
 } 
